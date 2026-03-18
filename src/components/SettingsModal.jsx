@@ -3,6 +3,8 @@ import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
 import { saveNotifSettings } from '../utils/notifications'
 
+const SERVER_URL = import.meta.env.VITE_SERVER_URL
+
 const DAY_OPTIONS = [
   { days: 14, label: 'За 2 недели' },
   { days: 7,  label: 'За 1 неделю' },
@@ -16,8 +18,11 @@ export default function SettingsModal({ onClose }) {
   const [selectedDays, setSelectedDays] = useState([])
   const [time,   setTime]   = useState('09:00')
   const [dark,   setDark]   = useState(localStorage.getItem('theme') === 'dark')
-  const [saved,  setSaved]  = useState(false)
-  const [loading, setLoading] = useState(true)
+  const [saved,       setSaved]       = useState(false)
+  const [loading,     setLoading]     = useState(true)
+  const [tgLinked,    setTgLinked]    = useState(false)
+  const [tgCode,      setTgCode]      = useState(null)
+  const [tgLoading,   setTgLoading]   = useState(false)
 
   useEffect(() => {
     loadSettings()
@@ -34,6 +39,7 @@ export default function SettingsModal({ onClose }) {
       setSelectedDays(data.notif_days ?? [])
       setTime(data.notif_time ?? '09:00')
       setDark(data.theme === 'dark')
+      setTgLinked(!!data.telegram_chat_id)
       // Синхронизируем с localStorage для checkAndNotify
       saveNotifSettings({ days: data.notif_days ?? [], time: data.notif_time ?? '09:00' })
       localStorage.setItem('theme', data.theme ?? 'light')
@@ -54,6 +60,22 @@ export default function SettingsModal({ onClose }) {
     const theme = value ? 'dark' : 'light'
     document.documentElement.setAttribute('data-theme', theme)
     setSaved(false)
+  }
+
+  async function generateTgCode() {
+    setTgLoading(true)
+    setTgCode(null)
+    try {
+      const res  = await fetch(`${SERVER_URL}/telegram/generate-code`, {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ userId: user.id }),
+      })
+      const json = await res.json()
+      setTgCode(json.code)
+    } finally {
+      setTgLoading(false)
+    }
   }
 
   async function handleSave() {
@@ -114,6 +136,28 @@ export default function SettingsModal({ onClose }) {
             value={time}
             onChange={e => { setTime(e.target.value); setSaved(false) }}
           />
+        </div>
+
+        <div className="settings-section">
+          <div className="settings-section-title">Telegram</div>
+          {tgLinked ? (
+            <p className="settings-tg-status settings-tg-status--ok">✓ Telegram подключён</p>
+          ) : (
+            <>
+              <p className="settings-hint">Подключи Telegram чтобы получать уведомления о днях рождения</p>
+              {!tgCode ? (
+                <button className="btn btn--secondary settings-tg-btn" onClick={generateTgCode} disabled={tgLoading}>
+                  {tgLoading ? '...' : 'Подключить Telegram'}
+                </button>
+              ) : (
+                <div className="settings-tg-code-wrap">
+                  <p className="settings-hint">Напиши боту <strong>@birthapp_bot</strong> команду:</p>
+                  <div className="settings-tg-code">/start {tgCode}</div>
+                  <p className="settings-hint">Код действует 10 минут</p>
+                </div>
+              )}
+            </>
+          )}
         </div>
 
         <div className="form-actions">

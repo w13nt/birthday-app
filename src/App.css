@@ -465,6 +465,30 @@ body {
 }
 .settings-time:focus { border-color: #3b82f6; }
 
+.settings-tg-btn {
+  width: 100%;
+  margin-top: 4px;
+}
+.settings-tg-code-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 4px;
+}
+.settings-tg-code {
+  font-family: monospace;
+  font-size: 1.1rem;
+  font-weight: 700;
+  background: #f3f4f6;
+  border-radius: 8px;
+  padding: 10px 14px;
+  letter-spacing: 0.05em;
+  color: #111827;
+  text-align: center;
+}
+.settings-tg-status { font-size: 0.9rem; }
+.settings-tg-status--ok { color: #16a34a; font-weight: 500; }
+
 .settings-toggle-row {
   display: flex;
   align-items: center;
