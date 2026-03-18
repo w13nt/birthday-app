@@ -37,21 +37,34 @@ export default function App() {
       .from('contacts')
       .select('*')
     if (error) { console.error(error); return }
-    const sorted = sortContacts(data)
+    // Маппим snake_case → camelCase
+    const mapped = data.map(c => ({ ...c, noYear: c.no_year }))
+    const sorted = sortContacts(mapped)
     setContacts(sorted)
     checkAndNotify(sorted)
+  }
+
+  function toDbContact(data) {
+    return {
+      name:       data.name,
+      day:        data.day,
+      month:      data.month,
+      year:       data.year ?? null,
+      no_year:    data.noYear ?? false,
+      note:       data.note ?? '',
+    }
   }
 
   async function handleSave(data) {
     if (data.id) {
       await supabase
         .from('contacts')
-        .update({ ...data, updated_at: new Date().toISOString() })
+        .update({ ...toDbContact(data), updated_at: new Date().toISOString() })
         .eq('id', data.id)
     } else {
       await supabase
         .from('contacts')
-        .insert({ ...data, user_id: user.id })
+        .insert({ ...toDbContact(data), user_id: user.id })
     }
     closeForm()
     loadContacts()

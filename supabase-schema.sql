@@ -1,7 +1,7 @@
 -- ── Contacts ──────────────────────────────────────────────
-create table contacts (
+create table if not exists contacts (
   id         uuid default gen_random_uuid() primary key,
-  user_id    uuid references auth.users(id) on delete cascade not null,
+  user_id    uuid references auth.users(id) on delete cascade,
   name       text not null,
   day        integer not null,
   month      integer not null,
@@ -12,15 +12,22 @@ create table contacts (
   updated_at timestamptz default now()
 );
 
+alter table contacts add column if not exists user_id    uuid references auth.users(id) on delete cascade;
+alter table contacts add column if not exists no_year   boolean default false;
+alter table contacts add column if not exists note      text default '';
+alter table contacts add column if not exists created_at timestamptz default now();
+alter table contacts add column if not exists updated_at timestamptz default now();
+
 alter table contacts enable row level security;
 
+drop policy if exists "Users manage own contacts" on contacts;
 create policy "Users manage own contacts"
   on contacts for all
   using (auth.uid() = user_id)
   with check (auth.uid() = user_id);
 
 -- ── User settings ──────────────────────────────────────────
-create table user_settings (
+create table if not exists user_settings (
   user_id          uuid references auth.users(id) on delete cascade primary key,
   notif_days       integer[] default '{0}',
   notif_time       text default '09:00',
@@ -32,13 +39,14 @@ create table user_settings (
 
 alter table user_settings enable row level security;
 
+drop policy if exists "Users manage own settings" on user_settings;
 create policy "Users manage own settings"
   on user_settings for all
   using (auth.uid() = user_id)
   with check (auth.uid() = user_id);
 
--- ── Sent notifications (дедупликация) ─────────────────────
-create table sent_notifications (
+-- ── Sent notifications ─────────────────────────────────────
+create table if not exists sent_notifications (
   id         bigserial primary key,
   key        text not null unique,
   user_id    uuid references auth.users(id) on delete cascade not null,
@@ -47,7 +55,7 @@ create table sent_notifications (
 
 alter table sent_notifications enable row level security;
 
--- Только сервер (service role) пишет в эту таблицу
+drop policy if exists "Service role only" on sent_notifications;
 create policy "Service role only"
   on sent_notifications for all
   using (false);
