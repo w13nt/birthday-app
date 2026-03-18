@@ -24,11 +24,13 @@ export default function SettingsModal({ onClose }) {
   }, [])
 
   async function loadSettings() {
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from('user_settings')
       .select('*')
       .eq('user_id', user.id)
-      .single()
+      .maybeSingle()
+
+    console.log('settings loaded:', data, error)
 
     if (data) {
       setSelectedDays(data.notif_days ?? [])

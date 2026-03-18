@@ -30,7 +30,7 @@ export default function App() {
       .from('user_settings')
       .select('theme')
       .eq('user_id', user.id)
-      .single()
+      .maybeSingle()
     const theme = data?.theme || localStorage.getItem('theme') || 'light'
     document.documentElement.setAttribute('data-theme', theme)
     localStorage.setItem('theme', theme)
