@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
-import { db } from './db/db'
-import { getDaysUntil } from './utils/dateHelpers'
+import { supabase }       from './lib/supabase'
+import { useAuth }        from './contexts/AuthContext'
+import { getDaysUntil }   from './utils/dateHelpers'
 import { checkAndNotify, requestPermission } from './utils/notifications'
 import ContactCard   from './components/ContactCard'
 import ContactForm   from './components/ContactForm'
@@ -8,27 +9,22 @@ import ConfirmDialog from './components/ConfirmDialog'
 import SettingsModal from './components/SettingsModal'
 
 export default function App() {
-  const [contacts,       setContacts]       = useState([])
-  const [showForm,       setShowForm]       = useState(false)
-  const [editContact,    setEditContact]    = useState(null)
-  const [deleteContact,  setDeleteContact]  = useState(null)
-  const [notifDenied,    setNotifDenied]    = useState(false)
-  const [importError,    setImportError]    = useState('')
-  const [showSettings,   setShowSettings]   = useState(false)
-  const [menuContactId,  setMenuContactId]  = useState(null)
+  const { user, signOut }                    = useAuth()
+  const [contacts,       setContacts]        = useState([])
+  const [showForm,       setShowForm]        = useState(false)
+  const [editContact,    setEditContact]     = useState(null)
+  const [deleteContact,  setDeleteContact]   = useState(null)
+  const [notifDenied,    setNotifDenied]     = useState(false)
+  const [importError,    setImportError]     = useState('')
+  const [showSettings,   setShowSettings]    = useState(false)
+  const [menuContactId,  setMenuContactId]   = useState(null)
   const importRef = useRef()
 
   useEffect(() => {
     loadContacts()
     const theme = localStorage.getItem('theme') || 'light'
     document.documentElement.setAttribute('data-theme', theme)
-  }, [])
-
-  async function loadContacts() {
-    const all = await db.contacts.toArray()
-    setContacts(sortContacts(all))
-    checkAndNotify(all)
-  }
+  }, [user])
 
   function sortContacts(list) {
     return [...list].sort(
@@ -36,16 +32,30 @@ export default function App() {
     )
   }
 
+  async function loadContacts() {
+    const { data, error } = await supabase
+      .from('contacts')
+      .select('*')
+    if (error) { console.error(error); return }
+    const sorted = sortContacts(data)
+    setContacts(sorted)
+    checkAndNotify(sorted)
+  }
+
   async function handleSave(data) {
     if (data.id) {
-      await db.contacts.update(data.id, { ...data, updatedAt: Date.now() })
+      await supabase
+        .from('contacts')
+        .update({ ...data, updated_at: new Date().toISOString() })
+        .eq('id', data.id)
     } else {
-      await db.contacts.add({ ...data, createdAt: Date.now() })
+      await supabase
+        .from('contacts')
+        .insert({ ...data, user_id: user.id })
     }
     closeForm()
     loadContacts()
 
-    // Запрашиваем разрешение на уведомления при первом сохранении
     if ('Notification' in window && Notification.permission === 'default') {
       const granted = await requestPermission()
       if (!granted) setNotifDenied(true)
@@ -53,9 +63,19 @@ export default function App() {
   }
 
   async function handleDelete(contact) {
-    await db.contacts.delete(contact.id)
+    await supabase.from('contacts').delete().eq('id', contact.id)
     setDeleteContact(null)
     loadContacts()
+  }
+
+  async function handleNoteUpdate(contactId, note) {
+    await supabase
+      .from('contacts')
+      .update({ note, updated_at: new Date().toISOString() })
+      .eq('id', contactId)
+    setContacts(prev =>
+      prev.map(c => c.id === contactId ? { ...c, note } : c)
+    )
   }
 
   function openEdit(contact) {
@@ -82,7 +102,7 @@ export default function App() {
 
   function handleExport() {
     const data = JSON.stringify(
-      contacts.map(({ id, createdAt, updatedAt, ...rest }) => rest),
+      contacts.map(({ id, user_id, created_at, updated_at, ...rest }) => rest),
       null, 2
     )
     const blob = new Blob([data], { type: 'application/json' })
@@ -109,8 +129,8 @@ export default function App() {
       )
       if (valid.length === 0) throw new Error('Нет корректных записей')
 
-      await db.contacts.bulkAdd(
-        valid.map(r => ({ ...r, createdAt: Date.now() }))
+      await supabase.from('contacts').insert(
+        valid.map(r => ({ ...r, user_id: user.id }))
       )
       loadContacts()
       setImportError(`Импортировано: ${valid.length} контактов`)
@@ -135,6 +155,9 @@ export default function App() {
           <button className="btn-icon" title="Экспорт" onClick={handleExport} disabled={contacts.length === 0}>
             ↓
           </button>
+          <button className="btn-icon" title="Выйти" onClick={signOut}>
+            ⎋
+          </button>
           <input
             ref={importRef}
             type="file"
@@ -148,7 +171,7 @@ export default function App() {
       <main className="main">
         {notifDenied && (
           <div className="banner">
-            Уведомления отключены. Разрешите в настройках браузера для этого сайта.
+            Уведомления отключены. Разрешите в настройках браузера.
             <button onClick={() => setNotifDenied(false)}>✕</button>
           </div>
         )}
@@ -174,6 +197,7 @@ export default function App() {
                 onMenuClose={() => setMenuContactId(null)}
                 onEdit={() => openEdit(c)}
                 onDelete={() => setDeleteContact(c)}
+                onNoteUpdate={handleNoteUpdate}
               />
             ))}
           </div>

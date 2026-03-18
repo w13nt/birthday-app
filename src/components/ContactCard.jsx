@@ -1,9 +1,8 @@
 import { useState } from 'react'
-import { db } from '../db/db'
 import { isToday, getDaysUntil, getAge, MONTHS_RU, pluralDays, pluralYears } from '../utils/dateHelpers'
 import { getZodiac } from '../utils/zodiac'
 
-export default function ContactCard({ contact, menuOpen, onMenuOpen, onMenuClose, onEdit, onDelete }) {
+export default function ContactCard({ contact, menuOpen, onMenuOpen, onMenuClose, onEdit, onDelete, onNoteUpdate }) {
   const { name, day, month, year, noYear } = contact
   const [note, setNote]       = useState(contact.note || '')
   const [noteSaved, setNoteSaved] = useState(false)
@@ -27,7 +26,7 @@ export default function ContactCard({ contact, menuOpen, onMenuOpen, onMenuClose
   const details = [dateStr, zodiac, ageStr].filter(Boolean).join(', ')
 
   async function saveNote() {
-    await db.contacts.update(contact.id, { note })
+    await onNoteUpdate(contact.id, note)
     setNoteSaved(true)
     setTimeout(() => setNoteSaved(false), 1500)
   }
