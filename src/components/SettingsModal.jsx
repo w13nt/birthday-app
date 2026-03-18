@@ -1,5 +1,7 @@
-import { useState } from 'react'
-import { getNotifSettings, saveNotifSettings, requestPermission } from '../utils/notifications'
+import { useState, useEffect } from 'react'
+import { supabase } from '../lib/supabase'
+import { useAuth } from '../contexts/AuthContext'
+import { saveNotifSettings } from '../utils/notifications'
 
 const DAY_OPTIONS = [
   { days: 14, label: 'За 2 недели' },
@@ -10,11 +12,35 @@ const DAY_OPTIONS = [
 ]
 
 export default function SettingsModal({ onClose }) {
-  const initial = getNotifSettings()
-  const [selectedDays, setSelectedDays] = useState(initial.days)
-  const [time, setTime]   = useState(initial.time)
-  const [dark, setDark]   = useState(localStorage.getItem('theme') === 'dark')
-  const [saved, setSaved] = useState(false)
+  const { user } = useAuth()
+  const [selectedDays, setSelectedDays] = useState([])
+  const [time,   setTime]   = useState('09:00')
+  const [dark,   setDark]   = useState(localStorage.getItem('theme') === 'dark')
+  const [saved,  setSaved]  = useState(false)
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    loadSettings()
+  }, [])
+
+  async function loadSettings() {
+    const { data } = await supabase
+      .from('user_settings')
+      .select('*')
+      .eq('user_id', user.id)
+      .single()
+
+    if (data) {
+      setSelectedDays(data.notif_days ?? [])
+      setTime(data.notif_time ?? '09:00')
+      setDark(data.theme === 'dark')
+      // Синхронизируем с localStorage для checkAndNotify
+      saveNotifSettings({ days: data.notif_days ?? [], time: data.notif_time ?? '09:00' })
+      localStorage.setItem('theme', data.theme ?? 'light')
+      document.documentElement.setAttribute('data-theme', data.theme ?? 'light')
+    }
+    setLoading(false)
+  }
 
   function toggleDay(days) {
     setSelectedDays(prev =>
@@ -31,12 +57,22 @@ export default function SettingsModal({ onClose }) {
   }
 
   async function handleSave() {
-    await requestPermission()
+    const theme = dark ? 'dark' : 'light'
+    const settings = { notif_days: selectedDays, notif_time: time, theme }
+
+    await supabase
+      .from('user_settings')
+      .upsert({ user_id: user.id, ...settings }, { onConflict: 'user_id' })
+
+    // Синхронизируем с localStorage
     saveNotifSettings({ days: selectedDays, time })
-    localStorage.setItem('theme', dark ? 'dark' : 'light')
+    localStorage.setItem('theme', theme)
+
     setSaved(true)
     setTimeout(onClose, 700)
   }
+
+  if (loading) return null
 
   return (
     <div className="overlay overlay--center" onClick={onClose}>
