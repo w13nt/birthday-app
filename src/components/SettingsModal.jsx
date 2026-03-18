@@ -30,8 +30,6 @@ export default function SettingsModal({ onClose }) {
       .eq('user_id', user.id)
       .maybeSingle()
 
-    console.log('settings loaded:', data, error)
-
     if (data) {
       setSelectedDays(data.notif_days ?? [])
       setTime(data.notif_time ?? '09:00')
