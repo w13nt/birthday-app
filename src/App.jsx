@@ -5,6 +5,7 @@ import { checkAndNotify, requestPermission } from './utils/notifications'
 import ContactCard   from './components/ContactCard'
 import ContactForm   from './components/ContactForm'
 import ConfirmDialog from './components/ConfirmDialog'
+import SettingsModal from './components/SettingsModal'
 
 export default function App() {
   const [contacts,       setContacts]       = useState([])
@@ -13,9 +14,15 @@ export default function App() {
   const [deleteContact,  setDeleteContact]  = useState(null)
   const [notifDenied,    setNotifDenied]    = useState(false)
   const [importError,    setImportError]    = useState('')
+  const [showSettings,   setShowSettings]   = useState(false)
+  const [menuContactId,  setMenuContactId]  = useState(null)
   const importRef = useRef()
 
-  useEffect(() => { loadContacts() }, [])
+  useEffect(() => {
+    loadContacts()
+    const theme = localStorage.getItem('theme') || 'light'
+    document.documentElement.setAttribute('data-theme', theme)
+  }, [])
 
   async function loadContacts() {
     const all = await db.contacts.toArray()
@@ -52,8 +59,15 @@ export default function App() {
   }
 
   function openEdit(contact) {
+    setMenuContactId(null)
     setEditContact(contact)
     setShowForm(true)
+  }
+
+  function handleEditCancel() {
+    setShowForm(false)
+    setMenuContactId(editContact?.id ?? null)
+    setEditContact(null)
   }
 
   function openAdd() {
@@ -112,6 +126,9 @@ export default function App() {
       <header className="header">
         <h1>Дни рождения</h1>
         <div className="header-actions">
+          <button className="btn-icon btn-icon--settings" title="Настройки" onClick={() => setShowSettings(true)}>
+            ⚙
+          </button>
           <button className="btn-icon" title="Импорт" onClick={() => importRef.current.click()}>
             ↑
           </button>
@@ -152,6 +169,9 @@ export default function App() {
               <ContactCard
                 key={c.id}
                 contact={c}
+                menuOpen={menuContactId === c.id}
+                onMenuOpen={() => setMenuContactId(c.id)}
+                onMenuClose={() => setMenuContactId(null)}
                 onEdit={() => openEdit(c)}
                 onDelete={() => setDeleteContact(c)}
               />
@@ -167,6 +187,7 @@ export default function App() {
           contact={editContact}
           onSave={handleSave}
           onClose={closeForm}
+          onCancel={handleEditCancel}
         />
       )}
 
@@ -174,8 +195,15 @@ export default function App() {
         <ConfirmDialog
           contact={deleteContact}
           onConfirm={() => handleDelete(deleteContact)}
-          onClose={() => setDeleteContact(null)}
+          onClose={() => {
+            setMenuContactId(deleteContact?.id ?? null)
+            setDeleteContact(null)
+          }}
         />
+      )}
+
+      {showSettings && (
+        <SettingsModal onClose={() => setShowSettings(false)} />
       )}
     </div>
   )

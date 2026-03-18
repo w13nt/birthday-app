@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { MONTHS_NAMES, daysInMonth } from '../utils/dateHelpers'
 
-export default function ContactForm({ contact, onSave, onClose }) {
+export default function ContactForm({ contact, onSave, onClose, onCancel }) {
   const [name,   setName]   = useState('')
   const [day,    setDay]    = useState(1)
   const [month,  setMonth]  = useState(1)
@@ -58,8 +58,8 @@ export default function ContactForm({ contact, onSave, onClose }) {
   }
 
   return (
-    <div className="overlay" onClick={onClose}>
-      <div className="modal" onClick={e => e.stopPropagation()}>
+    <div className="overlay overlay--center" onClick={onClose}>
+      <div className="modal modal--dialog" onClick={e => e.stopPropagation()}>
         <h2 className="modal-title">{contact ? 'Редактировать' : 'Новый контакт'}</h2>
 
         <form onSubmit={handleSubmit}>
@@ -116,7 +116,7 @@ export default function ContactForm({ contact, onSave, onClose }) {
           </div>
 
           <div className="form-actions">
-            <button type="button" className="btn btn--secondary" onClick={onClose}>
+            <button type="button" className="btn btn--secondary" onClick={onCancel ?? onClose}>
               Отмена
             </button>
             <button type="submit" className="btn btn--primary">
